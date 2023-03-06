@@ -1,0 +1,87 @@
+- block:
+    - name: Install Packages
+      become: true
+      when:  inventory_hostname in groups['master_servers']
+      yum:
+        state: present
+        name: 
+          - haproxy-{{ haproxy_version }}
+          - keepalived-{{ keepalived_version }}
+          - psmisc
+
+    - name: Install yum-plugin-versionlock on all nodes
+      become: true
+      when:  inventory_hostname in ((groups['master_servers'] + groups['worker_servers']) | unique )
+      yum:
+        state: present
+        name: 
+          - yum-plugin-versionlock
+
+    - name: Stop haproxy service
+      become: true
+      when:  inventory_hostname in groups['master_servers']
+      service:
+        name: haproxy
+        state: stopped
+
+    - name: Set setsebool -P haproxy_connect_any=1
+      become: true
+      when:  inventory_hostname in groups['master_servers']
+      command: setsebool -P haproxy_connect_any=1
+
+    - name: Copying haproxy conf to all master servers
+      become: true
+      when: inventory_hostname in groups['master_servers']
+      template:
+        src: haproxy.j2
+        dest: /etc/haproxy/haproxy.cfg
+        mode: "0644"
+    - name: Copying keepalived conf to k8s-master01
+      become: true
+      when: inventory_hostname == groups['master_servers'][0]
+      template:
+        src: keepalived1.j2
+        dest: /etc/keepalived/keepalived.conf
+        mode: "0644"
+
+    - name: Copying keepalived conf to k8s-master02
+      become: true
+      when: inventory_hostname == groups['master_servers'][1]
+      template:
+        src: keepalived2.j2
+        dest: /etc/keepalived/keepalived.conf
+        mode: "0644"
+
+    - name: Copying keepalived conf to k8s-master03
+      become: true
+      when: inventory_hostname == groups['master_servers'][2]
+      template:
+        src: keepalived3.j2
+        dest: /etc/keepalived/keepalived.conf
+        mode: "0644"
+
+    - name: Force systemd to reload configs
+      become: true
+      when: inventory_hostname in groups['master_servers']
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: restart and enable haproxy and keepalived
+      become: true
+      when: inventory_hostname in groups['master_servers']
+      service:
+        name: "{{item}}"
+        enabled: true
+        state: restarted
+      with_items:
+        - haproxy
+        - keepalived
+
+    - name: Prevent haproxy and keepalived from being updated
+      become: true
+      when: inventory_hostname in groups['master_servers']
+      community.general.yum_versionlock:
+        state: present
+        name:
+        - haproxy
+        - keepalived

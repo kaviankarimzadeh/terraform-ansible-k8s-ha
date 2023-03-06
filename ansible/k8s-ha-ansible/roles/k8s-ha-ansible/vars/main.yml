@@ -1,0 +1,53 @@
+---
+#Masters
+MASTER01_HOST: "{{ hostvars['kube-master0'].ansible_hostname }}"
+MASTER01_IP: "{{ hostvars['kube-master0'].ansible_ens10.ipv4.address }}"
+
+MASTER02_HOST: "{{ hostvars['kube-master1'].ansible_hostname }}"
+MASTER02_IP: "{{ hostvars['kube-master1'].ansible_ens10.ipv4.address }}"
+
+MASTER03_HOST: "{{ hostvars['kube-master2'].ansible_hostname }}"
+MASTER03_IP: "{{ hostvars['kube-master2'].ansible_ens10.ipv4.address }}"
+
+#Workers
+WORKER01_HOST: "{{ hostvars['kube-worker0'].ansible_hostname }}"
+WORKER01_IP: "{{ hostvars['kube-worker0'].ansible_ens10.ipv4.address }}"
+
+WORKER02_HOST: "{{ hostvars['kube-worker1'].ansible_hostname }}"
+WORKER02_IP: "{{ hostvars['kube-worker1'].ansible_ens10.ipv4.address }}"
+
+WORKER03_HOST: "{{ hostvars['kube-worker2'].ansible_hostname }}"
+WORKER03_IP: "{{ hostvars['kube-worker2'].ansible_ens10.ipv4.address }}"
+
+#LB
+VIP: 10.0.1.10
+VIP_HOST: lb
+
+#KEEPALIVED_HAPROXY
+APISERVER_DEST_PORT: 6443
+APISERVER_SRC_PORT: 8443
+
+#ENV
+cp_endpoint: "{{VIP}}:{{APISERVER_DEST_PORT}}"
+home_directory: /home/itman
+remote_username: itman
+k8s_version: 1.25.6
+helm_version: 3.11.1
+containerd_version: 1.6.18-3.1.el8
+cilium_version: 1.13.0
+#
+containerd_socket: "unix:///var/run/containerd/containerd.sock"
+pod_cidr: 10.244.0.0/20
+
+#PACKAGES_VERS
+haproxy_version: 1.8.27-5.el8
+keepalived_version: 2.1.5-9.el8
+
+#ETH_INFO #keepalived_config
+eth_master01: ens10
+eth_master02: ens10
+eth_master03: ens10
+
+#REPO
+repo_url: https://github.com/kaviankarimzadeh/helm-charts.git
+branch_name: main

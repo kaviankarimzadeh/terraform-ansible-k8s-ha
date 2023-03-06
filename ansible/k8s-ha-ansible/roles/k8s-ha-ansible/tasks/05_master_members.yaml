@@ -1,0 +1,53 @@
+- block:
+    - name: Copy master token
+      when: inventory_hostname in groups['master_servers']
+      become: true
+      copy:
+        src: /tmp/mastertoken
+        dest: /tmp/join-command.sh
+        owner: root
+        group: root
+        mode: '0777'
+
+    - name: update token command for k8s-master02
+      become: true
+      when: inventory_hostname == groups['master_servers'][1]
+      shell: sed -i '3s|$|& --apiserver-advertise-address {{MASTER02_IP}} --apiserver-bind-port 8443 |' /tmp/join-command.sh
+
+    - name: update token command for k8s-master03
+      become: true
+      when: inventory_hostname == groups['master_servers'][2]
+      shell: sed -i '3s|$|& --apiserver-advertise-address {{MASTER03_IP}} --apiserver-bind-port 8443 |' /tmp/join-command.sh
+
+    - name: add k8s-master02 to k8s cluster
+      become: true
+      when: inventory_hostname == groups['master_servers'][1]
+      command: sh /tmp/join-command.sh
+
+    - name: add k8s-master03 to k8s cluster
+      become: true
+      when: inventory_hostname == groups['master_servers'][2]
+      command: sh /tmp/join-command.sh
+
+    - name: remove port line from config
+      become: true
+      when: inventory_hostname in groups['master_servers']
+      shell: sudo sed -i '/--port=0/d' /etc/kubernetes/manifests/kube-scheduler.yaml
+
+    - name: remove port line from config
+      become: true
+      when: inventory_hostname in groups['master_servers']
+      shell: sudo sed -i '/--port=0/d' /etc/kubernetes/manifests/kube-controller-manager.yaml
+
+    - name: Sleep for 60 seconds and continue with play
+      ansible.builtin.wait_for:
+        timeout: 60
+      delegate_to: localhost
+
+    - name: restart kubelet service
+      become: true
+      when: inventory_hostname in groups['master_servers']
+      service:
+        name: kubelet
+        state: restarted
+        enabled: true

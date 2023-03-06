@@ -1,0 +1,43 @@
+- block:
+    - name: restart containerd services
+      when: inventory_hostname in ((groups['master_servers'] + groups['worker_servers']) | unique )
+      become: true
+      service:
+        name: containerd
+        state: restarted
+
+    - name: Install pyyaml module for Cilium on master01
+      become: true
+      when: inventory_hostname == groups['master_servers'][0]
+      shell: sudo pip3 install pyyaml
+
+    - name: cloning the helmchart repositories
+      when: inventory_hostname == groups['master_servers'][0]
+      ansible.builtin.git:
+        repo: "{{repo_url}}"
+        dest: /tmp/vanilla-k8s-helmcharts
+        single_branch: yes
+        version: "{{branch_name}}"
+
+    - name: Deploy Cilium chart from local path
+      when: inventory_hostname == groups['master_servers'][0]
+      kubernetes.core.helm:
+        name: cilium
+        chart_ref: /tmp/vanilla-k8s-helmcharts/cilium/{{cilium_version}}/cilium
+        release_namespace: kube-system
+
+    - name: Sleep for 60 seconds and continue with play
+      ansible.builtin.wait_for:
+        timeout: 60
+      delegate_to: localhost
+
+    - name: recreate all cluster pods after Cilium installation
+      when: inventory_hostname == groups['master_servers'][0]
+      shell: kubectl get pods --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,HOSTNETWORK:.spec.hostNetwork --no-headers=true | grep '<none>' | awk '{print "-n "$1" "$2}' | xargs -L 1 -r kubectl delete pod
+      ignore_errors: true
+
+    - name: remove repo directory
+      when: inventory_hostname == groups['master_servers'][0]
+      ansible.builtin.file:
+        path: /tmp/vanilla-k8s-helmcharts
+        state: absent
